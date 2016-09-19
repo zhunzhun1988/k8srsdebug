@@ -133,6 +133,7 @@ func (sc *SClient) handleMessage(msg string) {
 			if find1 && find2 {
 				for i, pod := range node1.PodInfos {
 					if pod.Namespace == names[2] && pod.Name == names[3] {
+						fmt.Printf("befor delete pod %s:%s: %v\v", pod.Namespace, pod.Name, node1.PodInfos)
 						if i == 0 {
 							node1.PodInfos = node1.PodInfos[1:]
 						} else if i == len(node1.PodInfos)-1 {
@@ -140,6 +141,7 @@ func (sc *SClient) handleMessage(msg string) {
 						} else {
 							node1.PodInfos = append(node1.PodInfos[0:i], node1.PodInfos[i+1:]...)
 						}
+						fmt.Printf("after delete pod %s:%s: %v\v", pod.Namespace, pod.Name, node1.PodInfos)
 						break
 					}
 				}
@@ -151,7 +153,7 @@ func (sc *SClient) handleMessage(msg string) {
 			names := strings.Split(strs[1], ":")
 			fmt.Printf("reschedule pod %s:%s from %s to %s fail %s\n", names[0], names[1], names[2], names[3], names[4])
 		case INFOTYPE_MESSAGE:
-			fmt.Printf("msg type INFOTYPE_MESSAGE:%s\n", msgStr)
+			//fmt.Printf("msg type INFOTYPE_MESSAGE:%s\n", msgStr)
 		}
 	} else {
 		fmt.Printf("unknow msg %d from server\n", strs[0])
@@ -173,7 +175,7 @@ func (sc *SClient) Run() {
 
 		length, err := con.Read(msg)
 		if err != nil {
-			fmt.Printf("Error when read from server.\n")
+			fmt.Printf("Error when read from server. err=%v\n", err)
 			os.Exit(0)
 		}
 		strs := strings.Split(string(msg[0:length]), "#")

@@ -206,7 +206,6 @@ func (n *Node) GetPod(podNamespace string) *Pod {
 }
 func (n *Node) AddPod(d *drawapi.Drawer, podNamespace, podName string) {
 	p, find := n.Pods[podNamespace]
-	fmt.Printf("patrick debug %v\n", find)
 	if find {
 		if _, ok := p.Names[podName]; ok {
 			fmt.Println("pod:%s:%s is added return\n", podNamespace, podName)
@@ -216,7 +215,6 @@ func (n *Node) AddPod(d *drawapi.Drawer, podNamespace, podName string) {
 		p.Count++
 		n.Draw(d)
 		p.Flicker(1 * time.Second)
-		fmt.Printf("patrick debug %d\n", p.Count)
 	} else {
 		sp, w, h := n.GetPodPos(len(n.Pods))
 		p = NewPod(sp, w, h, podNamespace, 1)
