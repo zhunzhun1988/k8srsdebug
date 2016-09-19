@@ -41,3 +41,22 @@ func (deh *DrawEventHandle) DeletePod(nodeName, podNamespace, podName string) {
 func (deh *DrawEventHandle) ReschedulePod(fromNodeName, toNodeName, podNamespace, podName string) {
 	deh.w.MovePodFromTo(fromNodeName, toNodeName, podNamespace, podName)
 }
+
+func (deh *DrawEventHandle) GetCurNodeInfos() socketclient.Infos {
+	ret := make(map[string]*socketclient.NodeInfos)
+	nodes := deh.w.GetNodeList()
+	for _, node := range nodes {
+		t := &socketclient.NodeInfos{NodeName: node.Name,
+			PodInfos: make([]socketclient.PodInfos, 0),
+		}
+		ret[node.Name] = t
+		for _, p := range node.Pods {
+			for name, _ := range p.Names {
+				t.PodInfos = append(t.PodInfos,
+					socketclient.PodInfos{Name: name, Namespace: p.Namespace})
+			}
+
+		}
+	}
+	return ret
+}

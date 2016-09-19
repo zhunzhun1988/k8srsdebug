@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	PodColor        = color.RGBA{0x00, 0xff, 0x00, 0xff}
+	PodColor        = color.RGBA{0x00, 0xff, 0xff, 0xff}
 	NodeColor       = color.RGBA{0xff, 0x00, 0x00, 0xff}
 	NodeOKColor     = color.RGBA{0x00, 0xff, 0x00, 0xff}
 	LineColor       = color.RGBA{0xff, 0xff, 0xff, 0xff}
@@ -208,7 +208,7 @@ func (n *Node) AddPod(d *drawapi.Drawer, podNamespace, podName string) {
 	p, find := n.Pods[podNamespace]
 	if find {
 		if _, ok := p.Names[podName]; ok {
-			fmt.Println("pod:%s:%s is added return\n", podNamespace, podName)
+			fmt.Printf("pod:%s:%s is added return\n", podNamespace, podName)
 			return
 		}
 		p.Names[podName] = true
@@ -223,12 +223,13 @@ func (n *Node) AddPod(d *drawapi.Drawer, podNamespace, podName string) {
 		p.Show(d)
 		n.Draw(d)
 	}
+	fmt.Printf("##### %s->%s: %d %d : %v\n", n.Name, p.Namespace, p.Count, len(p.Names), p.Names)
 }
 func (n *Node) DeletePod(d *drawapi.Drawer, podNamespace, podName string) {
 	p, find := n.Pods[podNamespace]
 	if find {
 		if _, ok := p.Names[podName]; !ok {
-			fmt.Println("pod:%s:%s is not exist return\n", podNamespace, podName)
+			fmt.Printf("pod:%s:%s is not exist return\n", podNamespace, podName)
 			return
 		}
 		p.Count--
@@ -370,6 +371,7 @@ func (w *Window) DeletePod(nodeName, podNamespace, podName string) {
 		n.DeletePod(w.drawer, podNamespace, podName)
 	}
 }
+
 func (w *Window) ExistNode(name string) bool {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()

@@ -4,18 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 )
-
-type EventHandle interface {
-	Init(infos Infos)
-	AddNode(nodeName string)
-	DeleteNode(nodeName string)
-	AddPod(nodeName, podNamespace, podName string)
-	DeletePod(nodeName, podNamespace, podName string)
-	ReschedulePod(fromNodeName, toNodeName, podNamespace, podName string)
-}
 
 const (
 	INFOTYPE_NODEINFO        string = "1"
@@ -36,12 +26,23 @@ type NodeInfos struct {
 
 type Infos map[string]*NodeInfos
 
+type EventHandle interface {
+	Init(infos Infos)
+	AddNode(nodeName string)
+	DeleteNode(nodeName string)
+	AddPod(nodeName, podNamespace, podName string)
+	DeletePod(nodeName, podNamespace, podName string)
+	ReschedulePod(fromNodeName, toNodeName, podNamespace, podName string)
+	GetCurNodeInfos() Infos
+}
+
 type SClient struct {
 	host        string
 	port        string
 	conn        net.Conn
 	eventHandle EventHandle
-	infos       Infos
+	isFirstRun  bool
+	//infos       Infos
 }
 
 func NewSClient(host, port string, eventHandle EventHandle) *SClient {
@@ -49,7 +50,8 @@ func NewSClient(host, port string, eventHandle EventHandle) *SClient {
 		host:        host,
 		port:        port,
 		eventHandle: eventHandle,
-		infos:       nil,
+		isFirstRun:  true,
+		//infos:       nil,
 	}
 }
 func getCommonPodInfos(nodeInfos1, nodeInfos2 []PodInfos) (node1Only, node2Only, common []PodInfos) {
@@ -83,28 +85,57 @@ func getCommonPodInfos(nodeInfos1, nodeInfos2 []PodInfos) (node1Only, node2Only,
 	}
 	return
 }
-func (sc *SClient) CompareInfo(newInfos Infos) {
-	fmt.Printf("enter CompareInfo size =%d\n", len(newInfos))
-	for _, newInfo := range newInfos {
-		fmt.Printf("newInfo:%s %d, %d\n", newInfo.NodeName, len(newInfo.PodInfos), len(newInfo.PodInfos))
-		if oldInfo, ok := sc.infos[newInfo.NodeName]; !ok {
-			sc.eventHandle.AddNode(newInfo.NodeName)
-			for _, podInfo := range newInfo.PodInfos {
-				fmt.Printf("add pod %s %s:%s\n", newInfo.NodeName, podInfo.Namespace, podInfo.Name)
-				sc.eventHandle.AddPod(newInfo.NodeName, podInfo.Namespace, podInfo.Name)
+
+/*
+func (sc *SClient) AddPod(nodename, podNamespace, podName string) {
+	node, find := sc.infos[nodename]
+	if find {
+		for _, pod := range node.PodInfos {
+			if pod.Name == podName && pod.Namespace == podNamespace {
+				return
 			}
-		} else {
-			t1, t2, _ := getCommonPodInfos(newInfo.PodInfos, oldInfo.PodInfos)
-			for _, p1 := range t1 {
-				sc.eventHandle.AddPod(newInfo.NodeName, p1.Namespace, p1.Name)
-			}
-			for _, p2 := range t2 {
-				sc.eventHandle.DeletePod(newInfo.NodeName, p2.Namespace, p2.Name)
+		}
+		node.PodInfos = append(node.PodInfos, PodInfos{Name: podName, Namespace: podNamespace})
+	}
+}
+func (sc *SClient) DeletePod(nodename, podNamespace, podName string) {
+	node, find := sc.infos[nodename]
+	if find {
+		for i, pod := range node.PodInfos {
+			if pod.Name == podName && pod.Namespace == podNamespace {
+				if i == 0 {
+					node.PodInfos = node.PodInfos[1:]
+				} else if i == len(node.PodInfos)-1 {
+					node.PodInfos = node.PodInfos[0 : len(node.PodInfos)-1]
+				} else {
+					node.PodInfos = append(node.PodInfos[0:i], node.PodInfos[i+1:]...)
+				}
+				return
 			}
 		}
 
 	}
-	for _, node := range sc.infos {
+}*/
+func (sc *SClient) CompareInfo(newInfos Infos) {
+	oldInfos := sc.eventHandle.GetCurNodeInfos()
+	for _, newInfo := range newInfos {
+		if oldInfo, ok := oldInfos[newInfo.NodeName]; !ok {
+			sc.eventHandle.AddNode(newInfo.NodeName)
+			for _, podInfo := range newInfo.PodInfos {
+				sc.eventHandle.AddPod(newInfo.NodeName, podInfo.Namespace, podInfo.Name)
+			}
+		} else {
+			t1, t2, _ := getCommonPodInfos(newInfo.PodInfos, oldInfo.PodInfos)
+			for _, p2 := range t2 {
+				sc.eventHandle.DeletePod(newInfo.NodeName, p2.Namespace, p2.Name)
+			}
+			for _, p1 := range t1 {
+				sc.eventHandle.AddPod(newInfo.NodeName, p1.Namespace, p1.Name)
+
+			}
+		}
+	}
+	for _, node := range oldInfos {
 		if _, ok := newInfos[node.NodeName]; !ok {
 			sc.eventHandle.DeleteNode(node.NodeName)
 		}
@@ -119,36 +150,28 @@ func (sc *SClient) handleMessage(msg string) {
 			infos := make(map[string]*NodeInfos)
 			fmt.Printf("msg type INFOTYPE_NODEINFO %s\n", msgStr)
 			json.Unmarshal([]byte(strs[1]), &infos)
-			if sc.infos == nil {
-				sc.infos = infos
-				sc.eventHandle.Init(sc.infos)
+			if sc.isFirstRun {
+				sc.isFirstRun = false
+				sc.eventHandle.Init(infos)
 			} else {
 				sc.CompareInfo(infos)
-				sc.infos = infos
 			}
 		case INFOTYPE_RESCHEDULE_OK:
 			names := strings.Split(strs[1], ":")
-			node1, find1 := sc.infos[names[0]]
-			node2, find2 := sc.infos[names[1]]
-			if find1 && find2 {
-				for i, pod := range node1.PodInfos {
-					if pod.Namespace == names[2] && pod.Name == names[3] {
-						fmt.Printf("befor delete pod %s:%s: %v\v", pod.Namespace, pod.Name, node1.PodInfos)
-						if i == 0 {
-							node1.PodInfos = node1.PodInfos[1:]
-						} else if i == len(node1.PodInfos)-1 {
-							node1.PodInfos = node1.PodInfos[0:i]
-						} else {
-							node1.PodInfos = append(node1.PodInfos[0:i], node1.PodInfos[i+1:]...)
-						}
-						fmt.Printf("after delete pod %s:%s: %v\v", pod.Namespace, pod.Name, node1.PodInfos)
-						break
-					}
-				}
-				node2.PodInfos = append(node2.PodInfos, PodInfos{Namespace: names[2], Name: names[3]})
-			}
+
 			sc.eventHandle.ReschedulePod(names[2], names[3], names[0], names[1])
+			//sc.AddPod(names[3], names[0], names[1])
+			//sc.DeletePod(names[2], names[0], names[1])
+			fmt.Println("--------------")
 			fmt.Printf("reschedule pod %s:%s from %s to %s Success %s\n", names[0], names[1], names[2], names[3], names[4])
+			/*n1, find1 := sc.infos[names[3]]
+			n2, find2 := sc.infos[names[2]]
+
+			fmt.Println("node ", names[3])
+			fmt.Println(n1.PodInfos)
+			fmt.Println("node ", names[2])
+			fmt.Println(n2.PodInfos)*/
+			fmt.Println("++++++++++++++")
 		case INFOTYPE_RESCHEDULE_FAIL:
 			names := strings.Split(strs[1], ":")
 			fmt.Printf("reschedule pod %s:%s from %s to %s fail %s\n", names[0], names[1], names[2], names[3], names[4])
@@ -160,23 +183,22 @@ func (sc *SClient) handleMessage(msg string) {
 	}
 }
 func (sc *SClient) Run() {
-	//go func() {
 	con, err := net.Dial("tcp", sc.host+":"+sc.port)
 	defer con.Close()
 
 	if err != nil {
 		fmt.Println("Server not found.")
-		os.Exit(-1)
+		return
 	}
 	fmt.Println("Connection OK.")
 
-	msg := make([]byte, 1024)
+	msg := make([]byte, 80960)
 	for {
 
 		length, err := con.Read(msg)
 		if err != nil {
 			fmt.Printf("Error when read from server. err=%v\n", err)
-			os.Exit(0)
+			return
 		}
 		strs := strings.Split(string(msg[0:length]), "#")
 		for _, str := range strs {
@@ -185,4 +207,5 @@ func (sc *SClient) Run() {
 			}
 		}
 	}
+
 }
