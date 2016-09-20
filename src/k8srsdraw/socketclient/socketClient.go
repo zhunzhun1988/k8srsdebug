@@ -184,6 +184,9 @@ func (sc *SClient) handleMessage(msg string) {
 }
 func (sc *SClient) Run() {
 	con, err := net.Dial("tcp", sc.host+":"+sc.port)
+	if err != nil {
+		return
+	}
 	defer con.Close()
 
 	if err != nil {
