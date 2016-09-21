@@ -38,8 +38,8 @@ func (deh *DrawEventHandle) DeletePod(nodeName, podNamespace, podName string) {
 	deh.w.DeletePod(nodeName, podNamespace, podName)
 }
 
-func (deh *DrawEventHandle) ReschedulePod(fromNodeName, toNodeName, podNamespace, podName string) {
-	deh.w.MovePodFromTo(fromNodeName, toNodeName, podNamespace, podName)
+func (deh *DrawEventHandle) ReschedulePod(fromNodeName, toNodeName, podNamespace, fromPodName, toPodName string) {
+	deh.w.MovePodFromTo(fromNodeName, toNodeName, podNamespace, fromPodName, toPodName)
 }
 
 func (deh *DrawEventHandle) GetCurNodeInfos() socketclient.Infos {

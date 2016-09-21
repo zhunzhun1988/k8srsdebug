@@ -36,7 +36,7 @@ type EventHandle interface {
 	DeleteNode(nodeName string)
 	AddPod(nodeName, podNamespace, podName string)
 	DeletePod(nodeName, podNamespace, podName string)
-	ReschedulePod(fromNodeName, toNodeName, podNamespace, podName string)
+	ReschedulePod(fromNodeName, toNodeName, podNamespace, fromPodName, toPodName string)
 	GetCurNodeInfos() Infos
 }
 
@@ -154,8 +154,9 @@ func (sc *SClient) handleMessage(id, msg string) {
 		}
 	case INFOTYPE_RESCHEDULE_OK:
 		names := strings.Split(msg, ":")
+		podNs, fromPodName, toPodName, fromNode, toNode := names[0], names[1], names[2], names[3], names[4]
 		fmt.Printf("reschedule pod %s:%s from %s to %s Success %s\n", names[0], names[1], names[2], names[3], names[4])
-		sc.eventHandle.ReschedulePod(names[2], names[3], names[0], names[1])
+		sc.eventHandle.ReschedulePod(fromNode, toNode, podNs, fromPodName, toPodName)
 
 		fmt.Printf("INFOTYPE_RESCHEDULE_OK stop %v\n", time.Now())
 		/*ret := sc.workQueue.RemoveItemByID(id)

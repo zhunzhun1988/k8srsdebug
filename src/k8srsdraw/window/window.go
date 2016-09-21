@@ -396,7 +396,7 @@ func (w *Window) DeleteNode(name string) {
 		w.Update(true)
 	}
 }
-func (w *Window) MovePodFromTo(fromNode, toNode, podNamespace, podName string) {
+func (w *Window) MovePodFromTo(fromNode, toNode, podNamespace, fromPodName, toPodName string) {
 	//go func() {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
@@ -427,8 +427,8 @@ func (w *Window) MovePodFromTo(fromNode, toNode, podNamespace, podName string) {
 	w.GetDrawer().DrawLineWithAnimation(startPoint, endPoint, LineColor, 5*time.Second)
 	time.Sleep(300 * time.Millisecond)
 	w.GetDrawer().DrawLine(startPoint, endPoint, w.GetDrawer().GetBackGround())
-	nodeFrom.DeletePod(w.drawer, podNamespace, podName)
-	nodeTo.AddPod(w.drawer, podNamespace, podName)
+	nodeFrom.DeletePod(w.drawer, podNamespace, fromPodName)
+	nodeTo.AddPod(w.drawer, podNamespace, toPodName)
 
 	//time.Sleep(3 * time.Second)
 	//w.Update(true)
