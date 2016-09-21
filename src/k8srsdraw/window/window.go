@@ -130,7 +130,16 @@ func (p *Pod) IsShowStatusChanged() bool {
 	return false
 }
 func (p *Pod) GetShowStr() string {
-	return fmt.Sprintf("%s:%d", p.Namespace, p.Count)
+	var nameStr string = "["
+	for key, _ := range p.Names {
+		if nameStr == "[" {
+			nameStr += " " + key
+		} else {
+			nameStr += ", " + key
+		}
+	}
+	nameStr += " ]"
+	return fmt.Sprintf("%s:%d %s", p.Namespace, p.Count, nameStr)
 }
 func (p *Pod) Show(d *drawapi.Drawer) {
 	showStr := p.GetShowStr()
@@ -223,7 +232,7 @@ func (n *Node) AddPod(d *drawapi.Drawer, podNamespace, podName string) {
 		p.Show(d)
 		n.Draw(d)
 	}
-	fmt.Printf("##### %s->%s: %d %d : %v\n", n.Name, p.Namespace, p.Count, len(p.Names), p.Names)
+	//fmt.Printf("##### %s->%s: %d %d : %v\n", n.Name, p.Namespace, p.Count, len(p.Names), p.Names)
 }
 func (n *Node) DeletePod(d *drawapi.Drawer, podNamespace, podName string) {
 	p, find := n.Pods[podNamespace]
@@ -388,42 +397,42 @@ func (w *Window) DeleteNode(name string) {
 	}
 }
 func (w *Window) MovePodFromTo(fromNode, toNode, podNamespace, podName string) {
-	go func() {
-		w.mutex.Lock()
-		defer w.mutex.Unlock()
-		nodeFrom, findFrom := w.Nodes[fromNode]
-		if findFrom == false {
-			return
-		}
-		nodeTo, findTo := w.Nodes[toNode]
-		if findTo == false {
-			return
-		}
-		pf := nodeFrom.GetPod(podNamespace)
-		if pf == nil {
-			return
-		}
-		pt := nodeTo.GetPod(podNamespace)
-		var ptPoint drawapi.DrawPoint
+	//go func() {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	nodeFrom, findFrom := w.Nodes[fromNode]
+	if findFrom == false {
+		return
+	}
+	nodeTo, findTo := w.Nodes[toNode]
+	if findTo == false {
+		return
+	}
+	pf := nodeFrom.GetPod(podNamespace)
+	if pf == nil {
+		return
+	}
+	pt := nodeTo.GetPod(podNamespace)
+	var ptPoint drawapi.DrawPoint
 
-		if pt != nil {
-			ptPoint = pt.StartPoint
-		} else {
-			ptPoint, _, _ = nodeTo.GetPodPos(len(nodeTo.Pods))
-		}
+	if pt != nil {
+		ptPoint = pt.StartPoint
+	} else {
+		ptPoint, _, _ = nodeTo.GetPodPos(len(nodeTo.Pods))
+	}
 
-		startPoint := drawapi.DrawPoint{pf.StartPoint.X + pf.Width, pf.StartPoint.Y + pf.Height}
-		endPoint := ptPoint
+	startPoint := drawapi.DrawPoint{pf.StartPoint.X + pf.Width, pf.StartPoint.Y + pf.Height}
+	endPoint := ptPoint
 
-		w.GetDrawer().DrawLineWithAnimation(startPoint, endPoint, LineColor, 2*time.Second)
-		time.Sleep(300 * time.Millisecond)
-		w.GetDrawer().DrawLine(startPoint, endPoint, w.GetDrawer().GetBackGround())
-		nodeFrom.DeletePod(w.drawer, podNamespace, podName)
-		nodeTo.AddPod(w.drawer, podNamespace, podName)
+	w.GetDrawer().DrawLineWithAnimation(startPoint, endPoint, LineColor, 5*time.Second)
+	time.Sleep(300 * time.Millisecond)
+	w.GetDrawer().DrawLine(startPoint, endPoint, w.GetDrawer().GetBackGround())
+	nodeFrom.DeletePod(w.drawer, podNamespace, podName)
+	nodeTo.AddPod(w.drawer, podNamespace, podName)
 
-		//time.Sleep(3 * time.Second)
-		//w.Update(true)
-	}()
+	//time.Sleep(3 * time.Second)
+	//w.Update(true)
+	//}()
 }
 func (w *Window) MoveStatue(s int) {
 	if s == 1 {

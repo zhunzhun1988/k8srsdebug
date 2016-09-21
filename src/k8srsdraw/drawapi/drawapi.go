@@ -102,7 +102,7 @@ func (d *Drawer) DrawLineWithAnimation(startPoint DrawPoint, endPoint DrawPoint,
 	dx := Abs(startPoint.X - endPoint.X)
 	dy := Abs(startPoint.Y - endPoint.Y)
 	maxD := Max(dx, dy)
-	dd := maxD / steps
+	dd := (maxD / steps) + 1
 	for i := 0; i <= maxD; i++ {
 		if i > 0 && i%dd == 0 {
 			time.Sleep(100 * time.Millisecond)

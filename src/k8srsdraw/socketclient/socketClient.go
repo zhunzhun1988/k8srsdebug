@@ -3,15 +3,19 @@ package socketclient
 import (
 	"encoding/json"
 	"fmt"
+	"k8srsdraw/workqueue"
 	"net"
 	"strings"
+	"time"
 )
 
 const (
-	INFOTYPE_NODEINFO        string = "1"
-	INFOTYPE_MESSAGE         string = "2"
-	INFOTYPE_RESCHEDULE_OK   string = "3"
-	INFOTYPE_RESCHEDULE_FAIL string = "4"
+	INFOTYPE_NODEINFO                      string = "1"
+	INFOTYPE_MESSAGE                       string = "2"
+	INFOTYPE_RESCHEDULE_OK                 string = "3"
+	INFOTYPE_RESCHEDULE_FAIL               string = "4"
+	INFOTYPE_RESCHEDULE_STARTONERESCHEDULE string = "5"
+	INFOTYPE_RESCHEDULE_STOPONERESCHEDULE  string = "6"
 )
 
 type PodInfos struct {
@@ -36,12 +40,34 @@ type EventHandle interface {
 	GetCurNodeInfos() Infos
 }
 
+type SClientWorkItem struct {
+	workqueue.WorkItem
+	cmd      string
+	id       string
+	scClient *SClient
+}
+
+func NewSClientWorkItem(id, str string, c *SClient) *SClientWorkItem {
+	return &SClientWorkItem{
+		cmd:      str,
+		scClient: c,
+		id:       id,
+	}
+}
+func (wi *SClientWorkItem) GetID() string {
+	return wi.id
+}
+func (wi *SClientWorkItem) Run() {
+	wi.scClient.handleMessage(wi.id, wi.cmd)
+}
+
 type SClient struct {
 	host        string
 	port        string
 	conn        net.Conn
 	eventHandle EventHandle
 	isFirstRun  bool
+	workQueue   *workqueue.WorkQueue
 	//infos       Infos
 }
 
@@ -51,6 +77,7 @@ func NewSClient(host, port string, eventHandle EventHandle) *SClient {
 		port:        port,
 		eventHandle: eventHandle,
 		isFirstRun:  true,
+		workQueue:   workqueue.NewWorQueue(),
 		//infos:       nil,
 	}
 }
@@ -86,38 +113,11 @@ func getCommonPodInfos(nodeInfos1, nodeInfos2 []PodInfos) (node1Only, node2Only,
 	return
 }
 
-/*
-func (sc *SClient) AddPod(nodename, podNamespace, podName string) {
-	node, find := sc.infos[nodename]
-	if find {
-		for _, pod := range node.PodInfos {
-			if pod.Name == podName && pod.Namespace == podNamespace {
-				return
-			}
-		}
-		node.PodInfos = append(node.PodInfos, PodInfos{Name: podName, Namespace: podNamespace})
-	}
-}
-func (sc *SClient) DeletePod(nodename, podNamespace, podName string) {
-	node, find := sc.infos[nodename]
-	if find {
-		for i, pod := range node.PodInfos {
-			if pod.Name == podName && pod.Namespace == podNamespace {
-				if i == 0 {
-					node.PodInfos = node.PodInfos[1:]
-				} else if i == len(node.PodInfos)-1 {
-					node.PodInfos = node.PodInfos[0 : len(node.PodInfos)-1]
-				} else {
-					node.PodInfos = append(node.PodInfos[0:i], node.PodInfos[i+1:]...)
-				}
-				return
-			}
-		}
-
-	}
-}*/
 func (sc *SClient) CompareInfo(newInfos Infos) {
 	oldInfos := sc.eventHandle.GetCurNodeInfos()
+
+	//ret, _ := json.Marshal(oldInfos)
+	//fmt.Printf("CompareInfo:%s\n", ret)
 	for _, newInfo := range newInfos {
 		if oldInfo, ok := oldInfos[newInfo.NodeName]; !ok {
 			sc.eventHandle.AddNode(newInfo.NodeName)
@@ -131,7 +131,6 @@ func (sc *SClient) CompareInfo(newInfos Infos) {
 			}
 			for _, p1 := range t1 {
 				sc.eventHandle.AddPod(newInfo.NodeName, p1.Namespace, p1.Name)
-
 			}
 		}
 	}
@@ -141,45 +140,33 @@ func (sc *SClient) CompareInfo(newInfos Infos) {
 		}
 	}
 }
-func (sc *SClient) handleMessage(msg string) {
-	strs := strings.Split(msg, "->")
-	if len(strs) == 2 {
-		msgStr := strs[1]
-		switch strs[0] {
-		case INFOTYPE_NODEINFO:
-			infos := make(map[string]*NodeInfos)
-			fmt.Printf("msg type INFOTYPE_NODEINFO %s\n", msgStr)
-			json.Unmarshal([]byte(strs[1]), &infos)
-			if sc.isFirstRun {
-				sc.isFirstRun = false
-				sc.eventHandle.Init(infos)
-			} else {
-				sc.CompareInfo(infos)
-			}
-		case INFOTYPE_RESCHEDULE_OK:
-			names := strings.Split(strs[1], ":")
-
-			sc.eventHandle.ReschedulePod(names[2], names[3], names[0], names[1])
-			//sc.AddPod(names[3], names[0], names[1])
-			//sc.DeletePod(names[2], names[0], names[1])
-			fmt.Println("--------------")
-			fmt.Printf("reschedule pod %s:%s from %s to %s Success %s\n", names[0], names[1], names[2], names[3], names[4])
-			/*n1, find1 := sc.infos[names[3]]
-			n2, find2 := sc.infos[names[2]]
-
-			fmt.Println("node ", names[3])
-			fmt.Println(n1.PodInfos)
-			fmt.Println("node ", names[2])
-			fmt.Println(n2.PodInfos)*/
-			fmt.Println("++++++++++++++")
-		case INFOTYPE_RESCHEDULE_FAIL:
-			names := strings.Split(strs[1], ":")
-			fmt.Printf("reschedule pod %s:%s from %s to %s fail %s\n", names[0], names[1], names[2], names[3], names[4])
-		case INFOTYPE_MESSAGE:
-			//fmt.Printf("msg type INFOTYPE_MESSAGE:%s\n", msgStr)
+func (sc *SClient) handleMessage(id, msg string) {
+	switch id {
+	case INFOTYPE_NODEINFO:
+		infos := make(map[string]*NodeInfos)
+		//fmt.Printf("msg type INFOTYPE_NODEINFO %s\n", msgStr)
+		json.Unmarshal([]byte(msg), &infos)
+		if sc.isFirstRun {
+			sc.isFirstRun = false
+			sc.eventHandle.Init(infos)
+		} else {
+			sc.CompareInfo(infos)
 		}
-	} else {
-		fmt.Printf("unknow msg %d from server\n", strs[0])
+	case INFOTYPE_RESCHEDULE_OK:
+		names := strings.Split(msg, ":")
+		fmt.Printf("reschedule pod %s:%s from %s to %s Success %s\n", names[0], names[1], names[2], names[3], names[4])
+		sc.eventHandle.ReschedulePod(names[2], names[3], names[0], names[1])
+
+		fmt.Printf("INFOTYPE_RESCHEDULE_OK stop %v\n", time.Now())
+		/*ret := sc.workQueue.RemoveItemByID(id)
+		if len(ret) > 0 {
+			sc.workQueue.AsyncRun(ret[len(ret)-1])
+		}*/
+	case INFOTYPE_RESCHEDULE_FAIL:
+		names := strings.Split(msg, ":")
+		fmt.Printf("reschedule pod %s:%s from %s to %s fail %s\n", names[0], names[1], names[2], names[3], names[4])
+	case INFOTYPE_MESSAGE:
+		//fmt.Printf("msg type INFOTYPE_MESSAGE:%s\n", msgStr)
 	}
 }
 func (sc *SClient) Run() {
@@ -206,7 +193,11 @@ func (sc *SClient) Run() {
 		strs := strings.Split(string(msg[0:length]), "#")
 		for _, str := range strs {
 			if str != "" {
-				sc.handleMessage(str)
+				//sc.handleMessage(str)
+				strs := strings.Split(str, "->")
+				if len(strs) == 2 {
+					sc.workQueue.AsyncRun(NewSClientWorkItem(strs[0], strs[1], sc))
+				}
 			}
 		}
 	}
