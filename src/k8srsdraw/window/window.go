@@ -19,7 +19,7 @@ var (
 	PodColor        = color.RGBA{0x00, 0xff, 0xff, 0xff}
 	NodeColor       = color.RGBA{0xff, 0x00, 0x00, 0xff}
 	NodeOKColor     = color.RGBA{0x00, 0xff, 0x00, 0xff}
-	LineColor       = color.RGBA{0xff, 0xff, 0xff, 0xff}
+	LineColor       = color.RGBA{255, 215, 0, 0xff}
 	NodeRowSpace    = 10
 	NodeColumSpace  = 10
 	NodeTopPadding  = 10
@@ -424,7 +424,7 @@ func (w *Window) MovePodFromTo(fromNode, toNode, podNamespace, fromPodName, toPo
 	startPoint := drawapi.DrawPoint{pf.StartPoint.X + pf.Width, pf.StartPoint.Y + pf.Height}
 	endPoint := ptPoint
 
-	w.GetDrawer().DrawLineWithAnimation(startPoint, endPoint, LineColor, 5*time.Second)
+	w.GetDrawer().DrawLineWithAnimation(startPoint, endPoint, LineColor, 2*time.Second)
 	time.Sleep(300 * time.Millisecond)
 	w.GetDrawer().DrawLine(startPoint, endPoint, w.GetDrawer().GetBackGround())
 	nodeFrom.DeletePod(w.drawer, podNamespace, fromPodName)

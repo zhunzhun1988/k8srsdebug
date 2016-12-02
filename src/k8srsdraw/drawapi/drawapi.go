@@ -94,6 +94,8 @@ func (d *Drawer) DrawLine(startPoint DrawPoint, endPoint DrawPoint, c color.Colo
 		x := int(float64(startPoint.X) + (float64(endPoint.X-startPoint.X))*(float64(i)/float64(maxD)))
 		y := int(float64(startPoint.Y) + (float64(endPoint.Y-startPoint.Y))*(float64(i)/float64(maxD)))
 		d.rgba.Set(x, y, c)
+		d.rgba.Set(x+1, y, c)
+		d.rgba.Set(x, y+1, c)
 	}
 	d.changed = true
 }

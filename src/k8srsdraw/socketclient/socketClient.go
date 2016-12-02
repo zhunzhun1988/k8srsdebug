@@ -155,7 +155,7 @@ func (sc *SClient) handleMessage(id, msg string) {
 	case INFOTYPE_RESCHEDULE_OK:
 		names := strings.Split(msg, ":")
 		podNs, fromPodName, toPodName, fromNode, toNode := names[0], names[1], names[2], names[3], names[4]
-		fmt.Printf("reschedule pod %s:%s from %s to %s Success %s\n", names[0], names[1], names[2], names[3], names[4])
+		fmt.Printf("reschedule pod %s:%s from %s to %s %s Success %s\n", names[0], names[1], names[2], names[3], toPodName, names[4])
 		sc.eventHandle.ReschedulePod(fromNode, toNode, podNs, fromPodName, toPodName)
 
 		fmt.Printf("INFOTYPE_RESCHEDULE_OK stop %v\n", time.Now())
@@ -185,7 +185,7 @@ func (sc *SClient) Run() {
 
 	msg := make([]byte, 80960)
 	for {
-
+		fmt.Printf("before read \n")
 		length, err := con.Read(msg)
 		if err != nil {
 			fmt.Printf("Error when read from server. err=%v\n", err)
@@ -201,6 +201,7 @@ func (sc *SClient) Run() {
 				}
 			}
 		}
+		con.Write([]byte("1"))
 	}
 
 }
