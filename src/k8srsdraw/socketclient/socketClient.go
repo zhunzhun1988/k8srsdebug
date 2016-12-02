@@ -141,6 +141,7 @@ func (sc *SClient) CompareInfo(newInfos Infos) {
 	}
 }
 func (sc *SClient) handleMessage(id, msg string) {
+	fmt.Printf("id=%s, msg:%s\n", id, msg)
 	switch id {
 	case INFOTYPE_NODEINFO:
 		infos := make(map[string]*NodeInfos)
@@ -183,15 +184,28 @@ func (sc *SClient) Run() {
 	}
 	fmt.Println("Connection OK.")
 
-	msg := make([]byte, 80960)
+	//msg := make([]byte, 80960)
 	for {
 		fmt.Printf("before read \n")
-		length, err := con.Read(msg)
-		if err != nil {
-			fmt.Printf("Error when read from server. err=%v\n", err)
-			return
+		lastIndex := 0
+		strBuf := ""
+		for {
+			bufBytes := make([]byte, 80960)
+			length, err := con.Read(bufBytes)
+			if err != nil {
+				fmt.Printf("Error when read from server. err=%v\n", err)
+				return
+			}
+			strBuf += string(bufBytes[:length])
+			if bufBytes[length-1] == '#' {
+				length = lastIndex + length
+				break
+			} else {
+				lastIndex = lastIndex + length
+			}
 		}
-		strs := strings.Split(string(msg[0:length]), "#")
+
+		strs := strings.Split(strBuf, "#")
 		for _, str := range strs {
 			if str != "" {
 				//sc.handleMessage(str)
