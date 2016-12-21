@@ -141,6 +141,7 @@ func (sc *SClient) CompareInfo(newInfos Infos) {
 	}
 }
 func (sc *SClient) handleMessage(id, msg string) {
+	fmt.Printf("id=%s, msg:%s\n", id, msg)
 	switch id {
 	case INFOTYPE_NODEINFO:
 		infos := make(map[string]*NodeInfos)
